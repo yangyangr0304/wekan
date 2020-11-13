@@ -66,6 +66,7 @@
     "fibers": "^5.0.0",
     "flatted": "^3.0.4",
     "gridfs-stream": "https://github.com/wekan/gridfs-stream/tarball/master",
+    "jquery": "^1.12.1",
     "jszip": "^3.4.0",
     "ldapjs": "^2.1.1",
     "markdown-it": "^12.0.2",
