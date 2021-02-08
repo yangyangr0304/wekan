@@ -32,6 +32,13 @@ Lists.attachSchema(
         }
       },
     },
+    archivedAt: {
+      /**
+       * latest archiving date
+       */
+      type: Date,
+      optional: true,
+    },
     boardId: {
       /**
        * the board associated to this list
@@ -292,7 +299,7 @@ Lists.mutations({
         return card.archive();
       });
     }
-    return { $set: { archived: true } };
+    return { $set: { archived: true, archivedAt: new Date() } };
   },
 
   restore() {
@@ -328,6 +335,16 @@ Lists.mutations({
   },
 });
 
+Lists.archivedLists = () => {
+  return Lists.find({ archived: true });
+};
+
+Lists.archivedListIds = () => {
+  return Lists.archivedLists().map(list => {
+    return list._id;
+  });
+};
+
 Meteor.methods({
   applyWipLimit(listId, limit) {
     check(listId, String);
@@ -352,6 +369,20 @@ Meteor.methods({
     const list = Lists.findOne({ _id: listId });
     list.toggleSoftLimit(!list.getWipLimit('soft'));
   },
+
+  myLists() {
+    // my lists
+    return _.uniq(
+      Lists.find(
+        { boardId: { $in: Boards.userBoardIds(this.userId) } },
+        { fields: { title: 1 } },
+      )
+        .fetch()
+        .map(list => {
+          return list.title;
+        }),
+    ).sort();
+  },
 });
 
 Lists.hookOptions.after.update = { fetchPrevious: false };
@@ -360,6 +391,7 @@ if (Meteor.isServer) {
   Meteor.startup(() => {
     Lists._collection._ensureIndex({ modifiedAt: -1 });
     Lists._collection._ensureIndex({ boardId: 1 });
+    Lists._collection._ensureIndex({ archivedAt: -1 });
   });
 
   Lists.after.insert((userId, doc) => {

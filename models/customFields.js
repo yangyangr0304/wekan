@@ -22,7 +22,14 @@ CustomFields.attachSchema(
        * type of the custom field
        */
       type: String,
-      allowedValues: ['text', 'number', 'date', 'dropdown', 'currency'],
+      allowedValues: [
+        'text',
+        'number',
+        'date',
+        'dropdown',
+        'checkbox',
+        'currency',
+      ],
     },
     settings: {
       /**
@@ -62,18 +69,28 @@ CustomFields.attachSchema(
        * should we show on the cards this custom field
        */
       type: Boolean,
+      defaultValue: false,
     },
     automaticallyOnCard: {
       /**
        * should the custom fields automatically be added on cards?
        */
       type: Boolean,
+      defaultValue: false,
+    },
+    alwaysOnCard: {
+      /**
+       * should the custom field be automatically added to all cards?
+       */
+      type: Boolean,
+      defaultValue: false,
     },
     showLabelOnMiniCard: {
       /**
        * should the label of the custom field be shown on minicards?
        */
       type: Boolean,
+      defaultValue: false,
     },
     createdAt: {
       type: Date,
@@ -103,6 +120,19 @@ CustomFields.attachSchema(
     },
   }),
 );
+
+CustomFields.addToAllCards = cf => {
+  Cards.update(
+    {
+      boardId: { $in: cf.boardIds },
+      customFields: { $not: { $elemMatch: { _id: cf._id } } },
+    },
+    {
+      $push: { customFields: { _id: cf._id, value: null } },
+    },
+    { multi: true },
+  );
+};
 
 CustomFields.mutations({
   addBoard(boardId) {
@@ -191,6 +221,10 @@ if (Meteor.isServer) {
 
   CustomFields.after.insert((userId, doc) => {
     customFieldCreation(userId, doc);
+
+    if (doc.alwaysOnCard) {
+      CustomFields.addToAllCards(doc);
+    }
   });
 
   CustomFields.before.update((userId, doc, fieldNames, modifier) => {
@@ -217,6 +251,11 @@ if (Meteor.isServer) {
     }
   });
 
+  CustomFields.after.update((userId, doc) => {
+    if (doc.alwaysOnCard) {
+      CustomFields.addToAllCards(doc);
+    }
+  });
   CustomFields.before.remove((userId, doc) => {
     customFieldDeletion(userId, doc);
     Activities.remove({

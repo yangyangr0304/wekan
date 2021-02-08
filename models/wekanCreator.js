@@ -253,13 +253,14 @@ export class WekanCreator {
       permission: boardToImport.permission,
       slug: getSlug(boardToImport.title) || 'board',
       stars: 0,
-      title: boardToImport.title,
+      title: Boards.uniqueTitle(boardToImport.title),
     };
     // now add other members
     if (boardToImport.members) {
       boardToImport.members.forEach(wekanMember => {
-        // do we already have it in our list?
+        // is it defined and do we already have it in our list?
         if (
+          wekanMember.wekanId &&
           !boardToCreate.members.some(
             member => member.wekanId === wekanMember.wekanId,
           )
@@ -537,6 +538,7 @@ export class WekanCreator {
         showOnCard: field.showOnCard,
         showLabelOnMiniCard: field.showLabelOnMiniCard,
         automaticallyOnCard: field.automaticallyOnCard,
+        alwaysOnCard: field.alwaysOnCard,
         //use date "now" if now created at date is provided (e.g. for very old boards)
         createdAt: this._now(this.createdAt.customFields[field._id]),
         modifiedAt: field.modifiedAt,

@@ -166,16 +166,16 @@ Template.memberPopup.helpers({
       const noComments = currentBoard.hasNoComments(this.userId);
       const worker = currentBoard.hasWorker(this.userId);
       if (commentOnly) {
-        return TAPi18n.__('comment-only').toLowerCase();
+        return TAPi18n.__('comment-only');
       } else if (noComments) {
-        return TAPi18n.__('no-comments').toLowerCase();
+        return TAPi18n.__('no-comments');
       } else if (worker) {
-        return TAPi18n.__('worker').toLowerCase();
+        return TAPi18n.__('worker');
       } else {
-        return TAPi18n.__(type).toLowerCase();
+        return TAPi18n.__(type);
       }
     } else {
-      return TAPi18n.__(type).toLowerCase();
+      return TAPi18n.__(type);
     }
   },
   isInvited() {
@@ -434,6 +434,23 @@ BlazeComponent.extendComponent({
       authToken: Accounts._storedLoginToken(),
     };
     return FlowRouter.path('/api/boards/:boardId/export', params, queryParams);
+  },
+  exportUrlExcel() {
+    const params = {
+      boardId: Session.get('currentBoard'),
+    };
+    const queryParams = {
+      authToken: Accounts._storedLoginToken(),
+    };
+    return FlowRouter.path(
+      '/api/boards/:boardId/exportExcel',
+      params,
+      queryParams,
+    );
+  },
+  exportFilenameExcel() {
+    const boardId = Session.get('currentBoard');
+    return `export-board-excel-${boardId}.xlsx`;
   },
   exportCsvUrl() {
     const params = {

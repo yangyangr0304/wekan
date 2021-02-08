@@ -311,6 +311,40 @@ Users.attachSchema(
       optional: false,
       defaultValue: 'password',
     },
+    sessionData: {
+      /**
+       * profile settings
+       */
+      type: Object,
+      optional: true,
+      // eslint-disable-next-line consistent-return
+      autoValue() {
+        if (this.isInsert && !this.isSet) {
+          return {};
+        }
+      },
+    },
+    'sessionData.totalHits': {
+      /**
+       * Total hits from last search
+       */
+      type: Number,
+      optional: true,
+    },
+    'sessionData.lastHit': {
+      /**
+       * last hit that was returned
+       */
+      type: Number,
+      optional: true,
+    },
+    importUsernames: {
+      /**
+       * username for imported
+       */
+      type: [String],
+      optional: true,
+    },
   }),
 );
 
@@ -349,6 +383,14 @@ Users.initEasySearch(searchInFields, {
   use: 'mongo-db',
   returnFields: [...searchInFields, 'profile.avatarUrl'],
 });
+
+Users.safeFields = {
+  _id: 1,
+  username: 1,
+  'profile.fullname': 1,
+  'profile.avatarUrl': 1,
+  'profile.initials': 1,
+};
 
 if (Meteor.isClient) {
   Users.helpers({
@@ -398,7 +440,18 @@ if (Meteor.isClient) {
   });
 }
 
+Users.parseImportUsernames = usernamesString => {
+  return usernamesString.trim().split(new RegExp('\\s*[,;]\\s*'));
+};
+
 Users.helpers({
+  importUsernamesString() {
+    if (this.importUsernames) {
+      return this.importUsernames.join(', ');
+    }
+    return '';
+  },
+
   boards() {
     return Boards.find(
       { 'members.userId': this._id },
@@ -744,7 +797,15 @@ Meteor.methods({
 
 if (Meteor.isServer) {
   Meteor.methods({
-    setCreateUser(fullname, username, password, isAdmin, isActive, email) {
+    setCreateUser(
+      fullname,
+      username,
+      password,
+      isAdmin,
+      isActive,
+      email,
+      importUsernames,
+    ) {
       if (Meteor.user() && Meteor.user().isAdmin) {
         check(fullname, String);
         check(username, String);
@@ -752,6 +813,7 @@ if (Meteor.isServer) {
         check(isAdmin, String);
         check(isActive, String);
         check(email, String);
+        check(importUsernames, Array);
 
         const nUsersWithUsername = Users.find({ username }).count();
         const nUsersWithEmail = Users.find({ email }).count();
@@ -768,10 +830,10 @@ if (Meteor.isServer) {
             email: email.toLowerCase(),
             from: 'admin',
           });
-          user = Users.findOne(username) || Users.findOne({ username });
+          const user = Users.findOne(username) || Users.findOne({ username });
           if (user) {
             Users.update(user._id, {
-              $set: { 'profile.fullname': fullname },
+              $set: { 'profile.fullname': fullname, importUsernames },
             });
           }
         }
@@ -974,8 +1036,10 @@ if (Meteor.isServer) {
       user.username = user.services.oidc.username;
       user.emails = [{ address: email, verified: true }];
       const initials = user.services.oidc.fullname
-        .match(/\b[a-zA-Z]/g)
-        .join('')
+        .split(/\s+/)
+        .reduce((memo, word) => {
+          return memo + word[0];
+        }, '')
         .toUpperCase();
       user.profile = {
         initials,
@@ -1396,13 +1460,18 @@ if (Meteor.isServer) {
    *
    * @description Only the admin user (the first user) can call the REST API.
    *
-   * @param {string} userId the user ID
+   * @param {string} userId the user ID or username
    * @return_type Users
    */
   JsonRoutes.add('GET', '/api/users/:userId', function(req, res) {
     try {
       Authentication.checkUserId(req.userId);
-      const id = req.params.userId;
+      let id = req.params.userId;
+      let user = Meteor.users.findOne({ _id: id });
+      if (!user) {
+        user = Meteor.users.findOne({ username: id });
+        id = user._id;
+      }
 
       // get all boards where the user is member of
       let boards = Boards.find(
@@ -1421,7 +1490,6 @@ if (Meteor.isServer) {
         return u;
       });
 
-      const user = Meteor.users.findOne({ _id: id });
       user.boards = boards;
       JsonRoutes.sendResult(res, {
         code: 200,
@@ -1687,6 +1755,38 @@ if (Meteor.isServer) {
         code: 200,
         data: {
           _id: id,
+        },
+      });
+    } catch (error) {
+      JsonRoutes.sendResult(res, {
+        code: 200,
+        data: error,
+      });
+    }
+  });
+
+  /**
+   * @operation create_user_token
+   *
+   * @summary Create a user token
+   *
+   * @description Only the admin user (the first user) can call the REST API.
+   *
+   * @param {string} userId the ID of the user to create token for.
+   * @return_type {_id: string}
+   */
+  JsonRoutes.add('POST', '/api/createtoken/:userId', function(req, res) {
+    try {
+      Authentication.checkUserId(req.userId);
+      const id = req.params.userId;
+      const token = Accounts._generateStampedLoginToken();
+      Accounts._insertLoginToken(id, token);
+
+      JsonRoutes.sendResult(res, {
+        code: 200,
+        data: {
+          _id: id,
+          authToken: token.token,
         },
       });
     } catch (error) {

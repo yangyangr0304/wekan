@@ -1,7 +1,7 @@
 swagger: '2.0'
 info:
   title: Wekan REST API
-  version: v4.77
+  version: v4.93
   description: |
     The REST API allows you to control and extend Wekan with ease.
 
@@ -2136,6 +2136,37 @@ paths:
                   type: string
                 listId:
                   type: string
+  /api/createtoken/{user}:
+    post:
+      operationId: create_user_token
+      summary: Create a user token
+      description: |
+        Only the admin user (the first user) can call the REST API.
+      tags:
+        - Users
+      consumes:
+        - multipart/form-data
+        - application/json
+      parameters:
+        - name: user
+          in: path
+          description: |
+            the ID of the user to create token for.
+          type: string
+          required: true
+      produces:
+        - application/json
+      security:
+          - UserSecurity: []
+      responses:
+        '200':
+          description: |-
+            200 response
+          schema:
+            type: object
+            properties:
+              _id:
+                type: string
   /api/user:
     get:
       operationId: get_current_user
@@ -2231,7 +2262,7 @@ paths:
         - name: user
           in: path
           description: |
-            the user ID
+            the user ID or username
           type: string
           required: true
       produces:
@@ -2361,6 +2392,11 @@ definitions:
         description: |
            Is the board archived?
         type: boolean
+      archivedAt:
+        description: |
+           Latest archiving time of the board
+        type: string
+        x-nullable: true
       createdAt:
         description: |
            Creation time of the board
@@ -2702,6 +2738,11 @@ definitions:
         description: |
            is the card archived
         type: boolean
+      archivedAt:
+        description: |
+           latest archiving date
+        type: string
+        x-nullable: true
       parentId:
         description: |
            ID of the parent card
@@ -3001,6 +3042,7 @@ definitions:
           - number
           - date
           - dropdown
+          - checkbox
           - currency
       settings:
         description: |
@@ -3013,6 +3055,10 @@ definitions:
       automaticallyOnCard:
         description: |
            should the custom fields automatically be added on cards?
+        type: boolean
+      alwaysOnCard:
+        description: |
+           should the custom field be automatically added to all cards?
         type: boolean
       showLabelOnMiniCard:
         description: |
@@ -3030,6 +3076,7 @@ definitions:
       - settings
       - showOnCard
       - automaticallyOnCard
+      - alwaysOnCard
       - showLabelOnMiniCard
       - modifiedAt
   CustomFieldsSettings:
@@ -3116,6 +3163,11 @@ definitions:
         description: |
            is the list archived
         type: boolean
+      archivedAt:
+        description: |
+           latest archiving date
+        type: string
+        x-nullable: true
       boardId:
         description: |
            the board associated to this list
@@ -3218,6 +3270,11 @@ definitions:
         description: |
            is the swimlane archived?
         type: boolean
+      archivedAt:
+        description: |
+           latest archiving date of the swimlane
+        type: string
+        x-nullable: true
       boardId:
         description: |
            the ID of the board the swimlane is attached to
@@ -3335,6 +3392,19 @@ definitions:
         description: |
            authentication method of the user
         type: string
+      sessionData:
+        description: |
+           profile settings
+        $ref: "#/definitions/UsersSessiondata"
+        x-nullable: true
+      importUsernames:
+        description: |
+           username for imported
+        type: array
+        items:
+          type: string
+          x-nullable: true
+        x-nullable: true
     required:
       - createdAt
       - modifiedAt
@@ -3476,3 +3546,14 @@ definitions:
       - cardTemplatesSwimlaneId
       - listTemplatesSwimlaneId
       - boardTemplatesSwimlaneId
+  UsersSessiondata:
+    type: object
+    properties:
+      totalHits:
+        description: |
+           Total hits from last search
+        type: number
+      lastHit:
+        description: |
+           last hit that was returned
+        type: number
